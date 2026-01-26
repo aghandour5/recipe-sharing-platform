@@ -1,24 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import DashboardPage from './pages/DashboardPage'; // Import DashboardPage
+import NavBar from './components/NavBar';
+import ProtectedRoute from './components/ProtectedRoute'; // Import ProtectedRoute
 import './App.css';
 
 function App() {
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    // Fetch data from the backend API
-    fetch('http://localhost:5000') // Our backend is running on port 5000
-      .then(res => res.json())
-      .then(data => setMessage(data.message))
-      .catch(err => console.error("Error fetching data:", err));
-  }, []); // The empty array [] means this effect runs only once when the component mounts
-
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Recipe Sharing Platform</h1>
-        <p>{message}</p>
-      </header>
-    </div>
+    <Router>
+      <div className="App">
+        <NavBar />
+        <main className="container">
+          <Routes>
+            <Route path="/" element={<HomePage />} exact />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </main>
+      </div>
+    </Router>
   );
 }
 

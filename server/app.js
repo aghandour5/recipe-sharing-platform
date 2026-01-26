@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 // Route imports
+const authRoutes = require('./routes/authRoutes')
 const categoryRoutes = require('./routes/categoryRoutes');
 
 const app = express();
@@ -21,6 +22,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Recipe Sharing Platform API!' });
 });
 
+app.use('/api/auth', authRoutes); // Routes for authentication
 app.use('/api/categories', categoryRoutes); // Any route defined inside categoryRoutes will be prefixed with /api/categories.
 
 // --- Basic Error Handling Middleware ---
