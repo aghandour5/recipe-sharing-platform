@@ -19,9 +19,8 @@ const NavBar = () => {
       <div>
         {isAuthenticated ? (
           <>
-            <span style={{ marginRight: '1rem' }}>
-              <Link to="/dashboard" style={{ textDecoration: 'none', color: 'inherit' }}>Welcome, {user.username}</Link>!
-            </span>
+            <Link to="/dashboard" style={{ marginRight: '1rem' }}>My Recipes</Link>
+            <span>Welcome, <Link to="/dashboard" style={{ textDecoration: 'none', color: 'inherit' }}>{user.username}</Link>!</span>
             <button onClick={handleLogout} style={{ marginLeft: '1rem' }}>Logout</button>
           </>
         ) : (

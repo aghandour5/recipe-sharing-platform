@@ -2,10 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path'); // Required for serving static files
 
 // Route imports
 const authRoutes = require('./routes/authRoutes')
 const categoryRoutes = require('./routes/categoryRoutes');
+const recipeRoutes = require('./routes/recipeRoutes'); // Import recipeRoutes
+const userRoutes = require('./routes/userRoutes'); // Import userRoutes
+const tagRoutes = require('./routes/tagRoutes');
 
 const app = express();
 
@@ -16,6 +20,11 @@ app.use(helmet());
 app.use(cors());
 app.use(morgan('combined'));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // For form data
+
+// Serve static files from the 'uploads' directory
+// This makes images accessible via /uploads/filename.jpg
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
 app.get('/', (req, res) => {
@@ -24,6 +33,9 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoutes); // Routes for authentication
 app.use('/api/categories', categoryRoutes); // Any route defined inside categoryRoutes will be prefixed with /api/categories.
+app.use('/api/recipes', recipeRoutes); // Mount recipe routes
+app.use('/api/users', userRoutes);
+app.use('/api/tags', tagRoutes);
 
 // --- Basic Error Handling Middleware ---
 // This should be the last piece of middleware because Express processes middleware top-to-bottom.
@@ -49,6 +61,12 @@ app.use((err, req, res, next) => {
 
 const server = app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
+  // Create uploads directory if it doesn't exist
+  const fs = require('fs');
+  const uploadsDir = path.join(__dirname, 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+  }
 });
 
 // Graceful shutdown
