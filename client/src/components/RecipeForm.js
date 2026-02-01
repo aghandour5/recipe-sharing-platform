@@ -6,7 +6,7 @@ import axios from 'axios';
 If this prop contains data (e.g., {id: 1, title: 'Pizza'}), the form knows it is in "Edit Mode".
 2. onSave (Function): A callback function passed from the parent. It tells the parent, "Hey, I'm done saving, here is the new data."
 */
-const RecipeForm = ({ recipe, onSave, onCancel }) => {
+const RecipeForm = ({ recipe, onSave, onCancel }) => { //onCancel → close form without saving
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -15,8 +15,8 @@ const RecipeForm = ({ recipe, onSave, onCancel }) => {
     cook_time_minutes: '',
     servings: '',
     image_url: '',
-    category_ids: [],
-    tag_ids: [],
+    category_ids: [], // Array of selected category IDs
+    tag_ids: [], // Array of selected tag IDs
   });
   const [categories, setCategories] = useState([]);
   const [tags, setTags] = useState([]);
@@ -79,18 +79,31 @@ const RecipeForm = ({ recipe, onSave, onCancel }) => {
   };
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreviewUrl(reader.result);
-      };
-      reader.readAsDataURL(file);
-      // Clear the image_url field if a file is selected, as we're uploading now
-      setFormData(prev => ({ ...prev, image_url: '' }));
+  const file = e.target.files[0];
+  if (file) {
+    // Optional: Add file type/size validation here if desired
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      e.target.value = null;
+      return;
     }
-  };
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreviewUrl(reader.result);
+    };
+    reader.onerror = () => { // Add error handling for FileReader
+      console.error("FileReader failed");
+      setImagePreviewUrl(null);
+    };
+    reader.readAsDataURL(file);
+    setFormData(prev => ({ ...prev, image_url: '' }));
+  } else {
+    // Handle case where file selection is cleared
+    setImageFile(null);
+    setImagePreviewUrl(null);
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();

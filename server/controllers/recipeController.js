@@ -7,6 +7,7 @@ const fs = require('fs');
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    // "Save pictures in the 'uploads' folder!"
     const uploadPath = path.join(__dirname, '..', 'uploads');
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
@@ -238,12 +239,14 @@ const getRecipeById = async (req, res) => {
 // @desc    Update a recipe
 // @route   PUT /api/recipes/:id
 const updateRecipe = [
-  upload.single('image'),
+  upload.single('image'), // Middleware to handle image upload
   async (req, res) => {
     const { title, description, instructions, prep_time_minutes, cook_time_minutes, servings, image_url, category_ids = [], tag_ids = [] } = req.body;
     const userId = req.user.id;
 
+    //
     try {
+      // Check if recipe exists and belongs to the user
       const recipeCheck = await db.query('SELECT * FROM recipes WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
       const existingRecipe = recipeCheck.rows[0];
 
@@ -251,20 +254,51 @@ const updateRecipe = [
         if (req.file) {
           fs.unlinkSync(req.file.path);
         }
+        /*
+        Many apps deliberately return 404 even when it’s actually “unauthorized” so you don’t leak information like:
+        “Yes this recipe exists, but you can’t touch it.”
+        */
         return res.status(404).json({ message: 'Recipe not found or you are not authorized to update it' });
       }
 
       let newImageUrl = existingRecipe.image_url;
 
-      if (req.file) {
+      // Handle image upload or URL change
+      if (req.file) { // req.file exists only if the user uploaded a file (via multer upload.single('image'))
         newImageUrl = `/uploads/${req.file.filename}`;
-        deleteImage(existingRecipe.image_url);
-      } else if (image_url && image_url !== existingRecipe.image_url) {
+        // Delete old image if it was an uploaded file
+        if (existingRecipe.image_url && existingRecipe.image_url.startsWith('/uploads/')) {
+          deleteImage(existingRecipe.image_url);
+        }
+      } else if (image_url !== existingRecipe.image_url) {
+        // Handle external image URL change
         newImageUrl = image_url;
+        // Delete old image if it was an uploaded file
         if (existingRecipe.image_url && existingRecipe.image_url.startsWith('/uploads/')) {
           deleteImage(existingRecipe.image_url);
         }
       }
+
+      // Parse category_ids and tag_ids from JSON strings
+      let parsedCategoryIds = [];
+      let parsedTagIds = [];
+
+      if (category_ids) {
+        try {
+          parsedCategoryIds = JSON.parse(category_ids);
+        } catch (e) {
+          console.error("Failed to parse category_ids", e);
+        }
+      }
+
+      if (tag_ids) {
+        try {
+          parsedTagIds = JSON.parse(tag_ids);
+        } catch (e) {
+          console.error("Failed to parse tag_ids", e);
+        }
+      }
+      //
 
       const updateFields = [];
       const updateValues = [];
@@ -281,6 +315,7 @@ const updateRecipe = [
       updateValues.push(req.params.id);
       updateValues.push(userId);
 
+      let updatedRecipe;
       if (updateFields.length > 0) {
         const updateQuery = `
           UPDATE recipes
@@ -288,21 +323,23 @@ const updateRecipe = [
           WHERE id = $${paramIndex++} AND user_id = $${paramIndex++}
           RETURNING *`;
         const result = await db.query(updateQuery, updateValues);
-        var updatedRecipe = result.rows[0];
+        updatedRecipe = result.rows[0];
       } else {
         const result = await db.query('SELECT * FROM recipes WHERE id = $1', [req.params.id]);
-        var updatedRecipe = result.rows[0];
+        updatedRecipe = result.rows[0];
       }
 
+      // Update category associations
       await db.query('DELETE FROM recipe_categories WHERE recipe_id = $1', [req.params.id]);
-      if (category_ids && category_ids.length > 0) {
-        const categoryValues = category_ids.map(catId => `('${req.params.id}', '${catId}')`).join(',');
+      if (parsedCategoryIds && parsedCategoryIds.length > 0) {
+        const categoryValues = parsedCategoryIds.map(catId => `('${req.params.id}', '${catId}')`).join(',');
         await db.query(`INSERT INTO recipe_categories (recipe_id, category_id) VALUES ${categoryValues}`);
       }
 
+      // Update tag associations
       await db.query('DELETE FROM recipe_tags WHERE recipe_id = $1', [req.params.id]);
-      if (tag_ids && tag_ids.length > 0) {
-        const tagValues = tag_ids.map(tagId => `('${req.params.id}', '${tagId}')`).join(',');
+      if (parsedTagIds && parsedTagIds.length > 0) {
+        const tagValues = parsedTagIds.map(tagId => `('${req.params.id}', '${tagId}')`).join(',');
         await db.query(`INSERT INTO recipe_tags (recipe_id, tag_id) VALUES ${tagValues}`);
       }
       
@@ -372,7 +409,7 @@ const getMyRecipes = async (req, res) => {
       WHERE r.user_id = $1
       GROUP BY r.id, u.id, u.username
       ORDER BY r.created_at DESC
-    `, [userId]);
+    `, [userId]); // Crucial: It is a LEFT JOIN (not INNER) so that recipes with zero ratings are still included in the results.
     
     const recipes = result.rows.map(row => ({
       id: row.id,

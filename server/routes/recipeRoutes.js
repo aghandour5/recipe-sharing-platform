@@ -30,7 +30,7 @@ router.route('/')
 
 router.route('/:id')
   .get(protect, getRecipeById) // GET /api/recipes/:id
-  .put(protect, updateRecipe) // PUT /api/recipes/:id
+  .put(protect, updateRecipe, multerErrorHandler) // PUT /api/recipes/:id
   .delete(protect, deleteRecipe); // DELETE /api/recipes/:id
 
 module.exports = router;

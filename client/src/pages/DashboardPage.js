@@ -13,7 +13,6 @@ const DashboardPage = () => {
   useEffect(() => {
     const fetchMyRecipes = async () => {
       try {
-        // Assuming the endpoint is /api/users/me/recipes
         const response = await axios.get('http://localhost:5000/api/users/me/recipes');
         setRecipes(response.data);
       } catch (err) {

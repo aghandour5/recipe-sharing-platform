@@ -12,7 +12,7 @@ const RecipeCard = ({ recipe }) => {
           style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px' }}
         />
       )}
-      <h3><Link to={`/recipes/${recipe.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{recipe.title}</Link></h3>
+      <h3><Link to={`/recipes/${recipe.id}`} style={{ textDecoration: 'underline', color: 'inherit' }}>{recipe.title}</Link></h3>
       <p>{recipe.description}</p>
       <p>By: {recipe.user.username}</p>
       {recipe.avg_rating && <p>Avg Rating: {recipe.avg_rating} ⭐</p>}
