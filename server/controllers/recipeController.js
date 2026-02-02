@@ -165,18 +165,54 @@ const createRecipe = [
 // @desc    Get all recipes (with optional pagination/filtering)
 // @route   GET /api/recipes
 const getRecipes = async (req, res) => {
+  const { search, category, tag } = req.query; // Extract query parameters
+  let query = `
+    SELECT
+      r.*, -- Select all recipe fields
+      u.id as user_id, u.username as user_username, -- Select user fields
+      COALESCE(AVG(rat.value), 0) as avg_rating
+    FROM recipes r
+    JOIN users u ON r.user_id = u.id -- Join with users to get user info
+    LEFT JOIN ratings rat ON r.id = rat.recipe_id -- LEFT JOIN to include recipes with no ratings
+  `;
+
+  const conditions = []; // To hold WHERE conditions
+  const queryParams = []; // To hold parameterized query values
+  let paramIndex = 1; // For parameterized queries
+
+  // --- Search Logic ---
+  if (search) { // If a search term is provided
+    conditions.push(`r.title ILIKE $${paramIndex++}`); // ILIKE for case-insensitive search
+    queryParams.push(`%${search}%`); // Use % for wildcard matching
+  }
+
+  // --- Category Filter Logic ---
+  if (category) {
+    // We need to join with recipe_categories and categories if a category filter is applied
+    query += ` JOIN recipe_categories rc ON r.id = rc.recipe_id JOIN categories c ON rc.category_id = c.id `; // Join to filter by category
+    conditions.push(`c.id = $${paramIndex++}`);
+    queryParams.push(category);
+  }
+
+  // --- Tag Filter Logic ---
+  if (tag) {
+    // Similarly, join with recipe_tags and tags if a tag filter is applied
+    query += ` JOIN recipe_tags rt ON r.id = rt.recipe_id JOIN tags t ON rt.tag_id = t.id `;
+    conditions.push(`t.id = $${paramIndex++}`);
+    queryParams.push(tag);
+  }
+
+  // --- Assemble WHERE clause ---
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  query += ` GROUP BY r.id, u.id, u.username ORDER BY r.created_at DESC`;
+
   try {
-    const result = await db.query(`
-      SELECT
-        r.*,
-        u.id as user_id, u.username as user_username,
-        COALESCE(AVG(rat.value), 0) as avg_rating
-      FROM recipes r
-      JOIN users u ON r.user_id = u.id
-      LEFT JOIN ratings rat ON r.id = rat.recipe_id
-      GROUP BY r.id, u.id, u.username
-      ORDER BY r.created_at DESC
-    `);
+    console.log("Executing Query:", query); // For debugging
+    console.log("With Params:", queryParams); // For debugging
+    const result = await db.query(query, queryParams);
 
     const recipes = result.rows.map(row => ({
       id: row.id,
