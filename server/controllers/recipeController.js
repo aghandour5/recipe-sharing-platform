@@ -49,7 +49,7 @@ const deleteImage = (imageUrl) => {
 };
 
 // Helper function to format recipe data for response
-const formatRecipe = (recipe, user, categories = [], tags = [], avgRating = null) => {
+const formatRecipe = (recipe, user, categories = [], tags = [], avgRating = null, comments = [], currentUserRating = null) => {
   return {
     id: recipe.id,
     title: recipe.title,
@@ -68,6 +68,8 @@ const formatRecipe = (recipe, user, categories = [], tags = [], avgRating = null
     categories: categories.map(cat => ({ id: cat.id, name: cat.name })),
     tags: tags.map(tag => ({ id: tag.id, name: tag.name })),
     avg_rating: avgRating ? parseFloat(avgRating.avg_rating).toFixed(2) : null,
+    current_user_rating: currentUserRating,
+    comments: comments,
   };
 };
 
@@ -265,7 +267,38 @@ const getRecipeById = async (req, res) => {
     );
     const avgRating = avgRatingResult.rows[0];
 
-    res.status(200).json(formatRecipe(recipe, user, categories, tags, avgRating));
+    let currentUserRating = null;
+    // Check if a user is authenticated (protect middleware adds req.user)
+    if (req.user) {
+        const userRatingResult = await db.query(
+            'SELECT value FROM ratings WHERE user_id = $1 AND recipe_id = $2',
+            [req.user.id, req.params.id]
+        );
+        if (userRatingResult.rows.length > 0) {
+            currentUserRating = userRatingResult.rows[0].value;
+        }
+    }
+
+    const commentsResult = await db.query(`
+      SELECT
+        c.id, c.content, c.created_at,
+        u.id as user_id, u.username as user_username
+      FROM comments c
+      JOIN users u ON c.user_id = u.id
+      WHERE c.recipe_id = $1
+      ORDER BY c.created_at DESC
+    `, [req.params.id]);
+    const comments = commentsResult.rows.map(row => ({
+        id: row.id,
+        content: row.content,
+        created_at: row.created_at,
+        user: {
+            id: row.user_id,
+            username: row.user_username
+        }
+    }));
+
+    res.status(200).json(formatRecipe(recipe, user, categories, tags, avgRating, comments, currentUserRating));
   } catch (error) {
     console.error('Get Recipe By ID Error:', error);
     res.status(500).json({ message: 'Server Error' });

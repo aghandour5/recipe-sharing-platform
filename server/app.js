@@ -5,11 +5,13 @@ const morgan = require('morgan');
 const path = require('path'); // Required for serving static files
 
 // Route imports
-const authRoutes = require('./routes/authRoutes')
-const categoryRoutes = require('./routes/categoryRoutes');
+const authRoutes = require('./routes/authRoutes'); // Import authRoutes
+const categoryRoutes = require('./routes/categoryRoutes'); // Import categoryRoutes
 const recipeRoutes = require('./routes/recipeRoutes'); // Import recipeRoutes
 const userRoutes = require('./routes/userRoutes'); // Import userRoutes
-const tagRoutes = require('./routes/tagRoutes');
+const tagRoutes = require('./routes/tagRoutes'); // Import tagRoutes
+const ratingRoutes = require('./routes/ratingRoutes'); // Import ratingRoutes
+const commentRoutes = require('./routes/commentRoutes'); // Import commentRoutes
 
 const app = express();
 
@@ -36,6 +38,8 @@ app.use('/api/categories', categoryRoutes); // Any route defined inside category
 app.use('/api/recipes', recipeRoutes); // Mount recipe routes
 app.use('/api/users', userRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/ratings', ratingRoutes); // Mount rating routes
+app.use('/api/comments', commentRoutes);
 
 // --- Basic Error Handling Middleware ---
 // This should be the last piece of middleware because Express processes middleware top-to-bottom.
