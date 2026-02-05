@@ -2,22 +2,20 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children }) => { // prop children represents the content that should be rendered inside the component.
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation(); // Use the hook instead of global location
 
   if (loading) {
     return <div>Loading...</div>;
   }
-
+  
+  // If not authenticated, redirect to login page
   if (!isAuthenticated) {
-    // Redirect them to the /login page, but save the current location they were
-    // trying to go to. This allows us to send them along to that page after login.
-    // For a more advanced redirect after login, you might pass state:
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return children;
+  return children; // If authenticated, render the child components
 };
 
 export default ProtectedRoute;

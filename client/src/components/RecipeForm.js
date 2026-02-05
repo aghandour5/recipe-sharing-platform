@@ -3,8 +3,8 @@ import axios from 'axios';
 
 /*
 1. recipe (Optional Object): If this prop is null or undefined, the form knows it is in "Create Mode".
-If this prop contains data (e.g., {id: 1, title: 'Pizza'}), the form knows it is in "Edit Mode".
-2. onSave (Function): A callback function passed from the parent. It tells the parent, "Hey, I'm done saving, here is the new data."
+If this prop contains data, the form knows it is in "Edit Mode".
+2. onSave: A callback function passed from the parent. It tells the parent, "Hey, I'm done saving, here is the new data."
 */
 const RecipeForm = ({ recipe, onSave, onCancel }) => { //onCancel → close form without saving
   const [formData, setFormData] = useState({
@@ -44,7 +44,7 @@ const RecipeForm = ({ recipe, onSave, onCancel }) => { //onCancel → close form
       try {
         const [catRes, tagRes] = await Promise.all([
           axios.get('http://localhost:5000/api/categories'),
-          axios.get('http://localhost:5000/api/tags') // Assuming you have /api/tags endpoint
+          axios.get('http://localhost:5000/api/tags')
         ]);
         setCategories(catRes.data);
         setTags(tagRes.data);

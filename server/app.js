@@ -26,7 +26,7 @@ app.use(express.urlencoded({ extended: true })); // For form data
 
 // Serve static files from the 'uploads' directory
 // This makes images accessible via /uploads/filename.jpg
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
 app.get('/', (req, res) => {

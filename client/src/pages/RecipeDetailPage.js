@@ -62,7 +62,7 @@ const RecipeDetailPage = () => {
       <h1 style={{ borderBottom: '2px solid #eee', paddingBottom: '0.5rem' }}>{recipe.title}</h1>
       {recipe.image_url && (
         <img
-          src={recipe.image_url.startsWith('http') ? recipe.image_url : `http://localhost:5000${recipe.image_url}`} // Adjust if serving locally
+          src={recipe.image_url} // Use relative path so CRA proxy serves /uploads from the API
           alt={recipe.title}
           style={{ width: '100%', maxHeight: '400px', objectFit: 'cover', borderRadius: '4px', marginBottom: '1rem', border: '1px solid #ddd' }}
         />

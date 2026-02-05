@@ -16,7 +16,7 @@ const CreateRecipePage = () => {
 
   return (
     <div>
-      <h1>Create a New Recipe</h1>
+      <h1>Recipe Form</h1>
       <RecipeForm onSave={handleSave} onCancel={handleCancel} />
     </div>
   );

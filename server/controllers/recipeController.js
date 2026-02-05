@@ -2,51 +2,18 @@ const db = require('../config/db');
 const { protect } = require('../middleware/authMiddleware');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const { uploadImage, deleteImage } = require('../config/supabaseStorage'); // Import helper
 
 // Configure multer storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // "Save pictures in the 'uploads' folder!"
-    const uploadPath = path.join(__dirname, '..', 'uploads');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
+// Use memory storage for multer as we're uploading to cloud
+const upload = multer({
+  storage: multer.memoryStorage(), // Store files in memory (RAM) as Buffer
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) { cb(null, true); }
+    else { cb(new Error('Only image files are allowed!'), false); } // 400
   },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'recipe-' + uniqueSuffix + path.extname(file.originalname));
-  }
 });
-
-// File filter to accept only images
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed!'), false);
-  }
-};
-
-// Initialize multer
-const upload = multer({ 
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  }
-});
-
-// Helper function to delete old image
-const deleteImage = (imageUrl) => {
-  if (imageUrl && imageUrl.startsWith('/uploads/')) {
-    const imagePath = path.join(__dirname, '..', imageUrl);
-    if (fs.existsSync(imagePath)) {
-      fs.unlinkSync(imagePath);
-    }
-  }
-};
 
 // Helper function to format recipe data for response
 const formatRecipe = (recipe, user, categories = [], tags = [], avgRating = null, comments = [], currentUserRating = null) => {
@@ -87,11 +54,11 @@ categories: [
 // @desc    Create a new recipe
 // @route   POST /api/recipes
 const createRecipe = [
-  upload.single('image'),
+  upload.single('image'), // multer will process file into memory (req.file.buffer)
   async (req, res) => {
     // 1. Parse standard fields
     const { title, description, instructions, prep_time_minutes, cook_time_minutes, servings, category_ids, tag_ids } = req.body;
-    
+
     // 2. Handle the arrays (which are now strings)
     let parsedCategoryIds = [];
     let parsedTagIds = [];
@@ -116,15 +83,17 @@ const createRecipe = [
     let imageUrl = null;
 
     if (req.file) {
-      imageUrl = `/uploads/${req.file.filename}`;
-    } else if (req.body.image_url) {
+      const fileName = `${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
+      try {
+        imageUrl = await uploadImage(req.file.buffer, fileName, req.file.mimetype);
+      } catch (uploadError) {
+        return res.status(500).json({ message: 'Image upload failed', error: uploadError.message });
+      }
+    } else if (req.body.image_url) { // Fallback for external URL input
       imageUrl = req.body.image_url;
     }
 
     if (!title || !instructions) {
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
-      }
       return res.status(400).json({ message: 'Title and instructions are required' });
     }
 
@@ -146,7 +115,7 @@ const createRecipe = [
         const tagValues = parsedTagIds.map(tagId => `('${newRecipe.id}', '${tagId}')`).join(',');
         await db.query(`INSERT INTO recipe_tags (recipe_id, tag_id) VALUES ${tagValues}`);
       }
-      
+
       const userResult = await db.query('SELECT id, username FROM users WHERE id = $1', [userId]);
       const user = userResult.rows[0];
 
@@ -156,9 +125,6 @@ const createRecipe = [
       });
     } catch (error) {
       console.error('Create Recipe Error:', error);
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
-      }
       res.status(500).json({ message: 'Server Error', error: error.message });
     }
   }
@@ -260,7 +226,7 @@ const getRecipeById = async (req, res) => {
       WHERE rt.recipe_id = $1
     `, [req.params.id]);
     const tags = tagsResult.rows;
-    
+
     const avgRatingResult = await db.query(
       'SELECT COALESCE(AVG(value), 0) as avg_rating FROM ratings WHERE recipe_id = $1',
       [req.params.id]
@@ -270,13 +236,13 @@ const getRecipeById = async (req, res) => {
     let currentUserRating = null;
     // Check if a user is authenticated (protect middleware adds req.user)
     if (req.user) {
-        const userRatingResult = await db.query(
-            'SELECT value FROM ratings WHERE user_id = $1 AND recipe_id = $2',
-            [req.user.id, req.params.id]
-        );
-        if (userRatingResult.rows.length > 0) {
-            currentUserRating = userRatingResult.rows[0].value;
-        }
+      const userRatingResult = await db.query(
+        'SELECT value FROM ratings WHERE user_id = $1 AND recipe_id = $2',
+        [req.user.id, req.params.id]
+      );
+      if (userRatingResult.rows.length > 0) {
+        currentUserRating = userRatingResult.rows[0].value;
+      }
     }
 
     const commentsResult = await db.query(`
@@ -289,13 +255,13 @@ const getRecipeById = async (req, res) => {
       ORDER BY c.created_at DESC
     `, [req.params.id]);
     const comments = commentsResult.rows.map(row => ({
-        id: row.id,
-        content: row.content,
-        created_at: row.created_at,
-        user: {
-            id: row.user_id,
-            username: row.user_username
-        }
+      id: row.id,
+      content: row.content,
+      created_at: row.created_at,
+      user: {
+        id: row.user_id,
+        username: row.user_username
+      }
     }));
 
     res.status(200).json(formatRecipe(recipe, user, categories, tags, avgRating, comments, currentUserRating));
@@ -320,9 +286,6 @@ const updateRecipe = [
       const existingRecipe = recipeCheck.rows[0];
 
       if (!existingRecipe) {
-        if (req.file) {
-          fs.unlinkSync(req.file.path);
-        }
         /*
         Many apps deliberately return 404 even when it’s actually “unauthorized” so you don’t leak information like:
         “Yes this recipe exists, but you can’t touch it.”
@@ -331,21 +294,32 @@ const updateRecipe = [
       }
 
       let newImageUrl = existingRecipe.image_url;
+      let oldSupabaseImageUrl = null;
+      if (existingRecipe.image_url && existingRecipe.image_url.includes(process.env.SUPABASE_URL)) {
+        oldSupabaseImageUrl = existingRecipe.image_url;
+      }
 
       // Handle image upload or URL change
-      if (req.file) { // req.file exists only if the user uploaded a file (via multer upload.single('image'))
-        newImageUrl = `/uploads/${req.file.filename}`;
-        // Delete old image if it was an uploaded file
-        if (existingRecipe.image_url && existingRecipe.image_url.startsWith('/uploads/')) {
-          deleteImage(existingRecipe.image_url);
+      if (req.file) {
+        const fileName = `${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
+        try {
+          newImageUrl = await uploadImage(req.file.buffer, fileName, req.file.mimetype);
+          // If new image uploads successfully, old one (if from Supabase) should be deleted later
+        } catch (uploadError) {
+          return res.status(500).json({ message: 'Image upload failed', error: uploadError.message });
         }
-      } else if (image_url !== existingRecipe.image_url) {
-        // Handle external image URL change
+      } else if (image_url && image_url !== existingRecipe.image_url) {
         newImageUrl = image_url;
-        // Delete old image if it was an uploaded file
-        if (existingRecipe.image_url && existingRecipe.image_url.startsWith('/uploads/')) {
-          deleteImage(existingRecipe.image_url);
+        // If external URL changes, and old one was from Supabase, it should be deleted
+        if (oldSupabaseImageUrl) {
+          // This case is tricky: if user changes from a Supabase image to an external URL,
+          // the old Supabase image becomes an orphan.
+          // For now, we only delete if a *new* Supabase image is uploaded.
+          // Or, if image_url is explicitly cleared and no new file is uploaded.
         }
+      } else if (image_url === null && !req.file && oldSupabaseImageUrl) {
+        // User wants to remove the image
+        newImageUrl = null;
       }
 
       // Parse category_ids and tag_ids from JSON strings
@@ -380,7 +354,7 @@ const updateRecipe = [
       if (cook_time_minutes !== undefined) { updateFields.push(`cook_time_minutes = $${paramIndex++}`); updateValues.push(cook_time_minutes); }
       if (servings !== undefined) { updateFields.push(`servings = $${paramIndex++}`); updateValues.push(servings); }
       if (newImageUrl !== existingRecipe.image_url) { updateFields.push(`image_url = $${paramIndex++}`); updateValues.push(newImageUrl); }
-      
+
       updateValues.push(req.params.id);
       updateValues.push(userId);
 
@@ -398,6 +372,24 @@ const updateRecipe = [
         updatedRecipe = result.rows[0];
       }
 
+      // If a new image was successfully uploaded to Supabase, and there was an old Supabase image, delete the old one.
+      if (newImageUrl && newImageUrl !== oldSupabaseImageUrl && oldSupabaseImageUrl) {
+        try {
+          await deleteImage(oldSupabaseImageUrl);
+        } catch (deleteError) {
+          console.error("Failed to delete old Supabase image during update:", deleteError);
+          // Non-critical error for the update process itself, but log it.
+        }
+      }
+      // If image was explicitly set to null (removed) and it was a Supabase image, delete it.
+      if (newImageUrl === null && oldSupabaseImageUrl) {
+        try {
+          await deleteImage(oldSupabaseImageUrl);
+        } catch (deleteError) {
+          console.error("Failed to delete Supabase image on explicit remove:", deleteError);
+        }
+      }
+
       // Update category associations
       await db.query('DELETE FROM recipe_categories WHERE recipe_id = $1', [req.params.id]);
       if (parsedCategoryIds && parsedCategoryIds.length > 0) {
@@ -411,10 +403,10 @@ const updateRecipe = [
         const tagValues = parsedTagIds.map(tagId => `('${req.params.id}', '${tagId}')`).join(',');
         await db.query(`INSERT INTO recipe_tags (recipe_id, tag_id) VALUES ${tagValues}`);
       }
-      
+
       const userResult = await db.query('SELECT id, username FROM users WHERE id = $1', [userId]);
       const user = userResult.rows[0];
-      
+
       const categoriesResult = await db.query(`SELECT c.id, c.name FROM categories c JOIN recipe_categories rc ON c.id = rc.category_id WHERE rc.recipe_id = $1`, [req.params.id]);
       const categories = categoriesResult.rows;
       const tagsResult = await db.query(`SELECT t.id, t.name FROM tags t JOIN recipe_tags rt ON t.id = rt.tag_id WHERE rt.recipe_id = $1`, [req.params.id]);
@@ -428,8 +420,8 @@ const updateRecipe = [
       });
     } catch (error) {
       console.error('Update Recipe Error:', error);
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
+      if (newImageUrl && newImageUrl !== existingRecipe.image_url && newImageUrl.includes(process.env.SUPABASE_URL)) {
+        try { await deleteImage(newImageUrl); } catch (e) { console.error("Cleanup of newly uploaded image failed:", e); }
       }
       res.status(500).json({ message: 'Server Error', error: error.message });
     }
@@ -449,8 +441,14 @@ const deleteRecipe = async (req, res) => {
       return res.status(404).json({ message: 'Recipe not found or you are not authorized to delete it' });
     }
 
-    if (existingRecipe.image_url && existingRecipe.image_url.startsWith('/uploads/')) {
-      deleteImage(existingRecipe.image_url);
+    // If the recipe has an image from Supabase, delete it from storage
+    if (existingRecipe.image_url && existingRecipe.image_url.includes(process.env.SUPABASE_URL)) {
+      try {
+        await deleteImage(existingRecipe.image_url);
+      } catch (deleteError) {
+        console.error(`Failed to delete image ${existingRecipe.image_url} from Supabase:`, deleteError);
+        // Proceed with recipe deletion even if image deletion fails, but log the error.
+      }
     }
 
     await db.query('DELETE FROM recipes WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
@@ -479,7 +477,7 @@ const getMyRecipes = async (req, res) => {
       GROUP BY r.id, u.id, u.username
       ORDER BY r.created_at DESC
     `, [userId]); // Crucial: It is a LEFT JOIN (not INNER) so that recipes with zero ratings are still included in the results.
-    
+
     const recipes = result.rows.map(row => ({
       id: row.id,
       title: row.title,
