@@ -12,6 +12,7 @@ const userRoutes = require('./routes/userRoutes'); // Import userRoutes
 const tagRoutes = require('./routes/tagRoutes'); // Import tagRoutes
 const ratingRoutes = require('./routes/ratingRoutes'); // Import ratingRoutes
 const commentRoutes = require('./routes/commentRoutes'); // Import commentRoutes
+const adminRoutes = require('./routes/adminRoutes'); // Import adminRoutes
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/ratings', ratingRoutes); // Mount rating routes
 app.use('/api/comments', commentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // --- Basic Error Handling Middleware ---
 // This should be the last piece of middleware because Express processes middleware top-to-bottom.

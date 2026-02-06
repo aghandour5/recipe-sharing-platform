@@ -158,7 +158,7 @@ const getRecipes = async (req, res) => {
   if (category) {
     // We need to join with recipe_categories and categories if a category filter is applied
     query += ` JOIN recipe_categories rc ON r.id = rc.recipe_id JOIN categories c ON rc.category_id = c.id `; // Join to filter by category
-    conditions.push(`c.id = $${paramIndex++}`);
+    conditions.push(`c.name ILIKE $${paramIndex++}`);
     queryParams.push(category);
   }
 
@@ -166,7 +166,7 @@ const getRecipes = async (req, res) => {
   if (tag) {
     // Similarly, join with recipe_tags and tags if a tag filter is applied
     query += ` JOIN recipe_tags rt ON r.id = rt.recipe_id JOIN tags t ON rt.tag_id = t.id `;
-    conditions.push(`t.id = $${paramIndex++}`);
+    conditions.push(`t.name ILIKE $${paramIndex++}`);
     queryParams.push(tag);
   }
 
@@ -187,6 +187,9 @@ const getRecipes = async (req, res) => {
       title: row.title,
       description: row.description,
       image_url: row.image_url,
+      prep_time_minutes: row.prep_time_minutes,
+      cook_time_minutes: row.cook_time_minutes,
+      servings: row.servings,
       created_at: row.created_at,
       avg_rating: parseFloat(row.avg_rating).toFixed(2),
       user: { id: row.user_id, username: row.user_username }
