@@ -9,7 +9,7 @@ export function Footer() {
                     <a href="/contact" className="hover:text-primary transition-colors">Contact</a>
                 </div>
                 <div className="flex flex-col md:flex-row gap-2">
-                    <p>&copy; {new Date().getFullYear()} CulinaryShare.</p>
+                    <p>&copy; {new Date().getFullYear()} Sufra.</p>
                     <p>Designed & Developed by Ali Sallam Ghandour | Full Stack Web Developer</p>
                 </div>
             </div>

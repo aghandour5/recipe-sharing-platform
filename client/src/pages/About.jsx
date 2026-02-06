@@ -62,7 +62,7 @@ export default function About() {
               <p className="text-primary font-medium mb-4">Full Stack Web Developer</p>
               <p className="text-muted-foreground leading-relaxed">
                 Hi, I'm Ali. I am a passionate Full Stack Web Developer dedicated to building seamless and interactive web experiences.
-                Specializing in modern technologies like React, Node.js, and Cloud Solutions, I created CulinaryShare to bring food lovers together.
+                Specializing in modern technologies like React, Node.js, and Cloud Solutions, I created Sufra to bring food lovers together.
                 I love solving complex problems and turning ideas into efficient, scalable applications.
               </p>
             </div>

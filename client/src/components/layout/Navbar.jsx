@@ -33,13 +33,12 @@ export function Navbar() {
     <nav className="navbar">
       <div className="container-custom navbar-content">
         {/* Logo */}
-        <Link href="/" className="logo-link group">
-          <div className="logo-icon-wrapper">
-            <ChefHat className="h-6 w-6 text-primary" />
-          </div>
-          <span className="logo-text">
-            CulinaryShare
-          </span>
+        <Link href="/" className="logo-link">
+          <img
+            src="/images/Sufra - Transparent.png"
+            alt="Sufra Logo"
+            className="logo-image"
+          />
         </Link>
 
         {/* Desktop Search */}
